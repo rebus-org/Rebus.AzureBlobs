@@ -1,8 +1,8 @@
-using System;
-using Microsoft.WindowsAzure.Storage;
+using Microsoft.Azure.Storage;
 using Rebus.Auditing.Sagas;
 using Rebus.AzureBlobs.Sagas;
 using Rebus.Logging;
+using System;
 // ReSharper disable UnusedMember.Global
 
 namespace Rebus.Config

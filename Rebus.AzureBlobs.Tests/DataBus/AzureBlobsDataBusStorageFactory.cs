@@ -1,9 +1,9 @@
-﻿using System;
-using Microsoft.WindowsAzure.Storage.Blob;
+﻿using Microsoft.Azure.Storage.Blob;
 using Rebus.AzureBlobs.DataBus;
 using Rebus.DataBus;
 using Rebus.Logging;
 using Rebus.Tests.Contracts.DataBus;
+using System;
 
 namespace Rebus.AzureBlobs.Tests.DataBus
 {

@@ -1,7 +1,7 @@
-﻿using System;
-using System.IO;
-using Microsoft.WindowsAzure.Storage;
+﻿using Microsoft.Azure.Storage;
 using Rebus.Exceptions;
+using System;
+using System.IO;
 
 namespace Rebus.AzureBlobs.Tests
 {
