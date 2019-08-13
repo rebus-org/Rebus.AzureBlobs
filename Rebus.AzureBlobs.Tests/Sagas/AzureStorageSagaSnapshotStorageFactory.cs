@@ -1,11 +1,11 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using Microsoft.WindowsAzure.Storage.Blob;
+using Microsoft.Azure.Storage.Blob;
 using Rebus.Auditing.Sagas;
 using Rebus.AzureBlobs.Sagas;
 using Rebus.Logging;
 using Rebus.Tests.Contracts.Sagas;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Rebus.AzureBlobs.Tests.Sagas
 {
