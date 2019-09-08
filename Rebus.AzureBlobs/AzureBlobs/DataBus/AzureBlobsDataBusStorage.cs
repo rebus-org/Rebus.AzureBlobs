@@ -6,8 +6,11 @@ using Rebus.Extensions;
 using Rebus.Logging;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Net;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Rebus.Time;
 
@@ -160,15 +163,90 @@ namespace Rebus.AzureBlobs.DataBus
         static string GetBlobName(string id) => $"data-{id.ToLowerInvariant()}.dat";
 
         /// <inheritdoc />
-        public Task Delete(string id)
+        public async Task Delete(string id)
         {
-            throw new NotImplementedException();
+            var blobName = GetBlobName(id);
+
+            try
+            {
+                var container = _client.GetContainerReference(_containerName);
+
+                var blob = await container.GetBlobReferenceFromServerAsync(
+                    blobName: blobName,
+                    accessCondition: AccessCondition.GenerateEmptyCondition(),
+                    options: new BlobRequestOptions {RetryPolicy = new ExponentialRetry()},
+                    operationContext: new OperationContext()
+                );
+
+                await blob.DeleteAsync();
+            }
+            catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
+            {
+                // it's ok
+            }
         }
 
         /// <inheritdoc />
         public IEnumerable<string> Query(TimeRange readTime = null, TimeRange saveTime = null)
         {
-            throw new NotImplementedException();
+            var container = _client.GetContainerReference(_containerName);
+
+            BlobContinuationToken blobContinuationToken = null;
+
+            do
+            {
+                var results = container.ListBlobsSegmented(blobContinuationToken);
+
+                foreach (var result in results.Results.OfType<CloudBlockBlob>())
+                {
+                    var fileName = Path.GetFileNameWithoutExtension(result.Name);
+                    if (fileName == null) continue;
+
+                    var id = fileName.Split('-').Last();
+
+                    if (string.IsNullOrWhiteSpace(id)) continue;
+
+                    // accelerate querying without criteria
+                    if (readTime == null && saveTime == null) yield return id;
+
+                    var metadata = AsyncHelpers.GetResult(() => ReadMetadata(id));
+
+                    if (readTime != null)
+                    {
+                        if (metadata.TryGetValue(MetadataKeys.ReadTime, out var readTimeString))
+                        {
+                            if (DateTimeOffset.TryParseExact(readTimeString, "o", CultureInfo.InvariantCulture,
+                                DateTimeStyles.RoundtripKind, out var readTimeValue))
+                            {
+                                if (!IsWithin(readTime, readTimeValue)) continue;
+                            }
+                        }
+                    }
+
+                    if (saveTime != null)
+                    {
+                        if (metadata.TryGetValue(MetadataKeys.SaveTime, out var saveTimeString))
+                        {
+                            if (DateTimeOffset.TryParseExact(saveTimeString, "o", CultureInfo.InvariantCulture,
+                                DateTimeStyles.RoundtripKind, out var saveTimeValue))
+                            {
+                                if (!IsWithin(saveTime, saveTimeValue)) continue;
+                            }
+                        }
+                    }
+
+                    yield return id;
+                }
+
+                blobContinuationToken = results.ContinuationToken;
+
+            } while (blobContinuationToken != null);
+        }
+
+        static bool IsWithin(TimeRange timeRange, DateTimeOffset time)
+        {
+            return time >= (timeRange?.From ?? DateTimeOffset.MinValue)
+                   && time < (timeRange?.To ?? DateTimeOffset.MaxValue);
         }
     }
 }
