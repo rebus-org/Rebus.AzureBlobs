@@ -16,7 +16,7 @@ namespace Rebus.AzureBlobs.DataBus
     /// <summary>
     /// Implementation of <see cref="IDataBusStorage"/> that uses Azure blobs to store data
     /// </summary>
-    public class AzureBlobsDataBusStorage : IDataBusStorage
+    public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManagement
     {
         readonly CloudBlobClient _client;
         readonly IRebusTime _rebusTime;
@@ -158,5 +158,17 @@ namespace Rebus.AzureBlobs.DataBus
         }
 
         static string GetBlobName(string id) => $"data-{id.ToLowerInvariant()}.dat";
+
+        /// <inheritdoc />
+        public Task Delete(string id)
+        {
+            throw new NotImplementedException();
+        }
+
+        /// <inheritdoc />
+        public IEnumerable<string> Query(TimeRange readTime = null, TimeRange saveTime = null)
+        {
+            throw new NotImplementedException();
+        }
     }
 }

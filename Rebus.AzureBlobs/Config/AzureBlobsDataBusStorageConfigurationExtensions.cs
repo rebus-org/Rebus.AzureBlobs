@@ -42,13 +42,17 @@ namespace Rebus.Config
 
         static void Configure(StandardConfigurer<IDataBusStorage> configurer, string containerName, CloudStorageAccount cloudStorageAccount)
         {
-            configurer.Register(c =>
+            configurer.OtherService<AzureBlobsDataBusStorage>().Register(c =>
             {
                 var rebusLoggerFactory = c.Get<IRebusLoggerFactory>();
                 var rebusTime = c.Get<IRebusTime>();
 
                 return new AzureBlobsDataBusStorage(cloudStorageAccount, containerName, rebusLoggerFactory, rebusTime);
             });
+
+            configurer.Register(c => c.Get<AzureBlobsDataBusStorage>());
+
+            configurer.OtherService<IDataBusStorageManagement>().Register(c => c.Get<AzureBlobsDataBusStorage>());
         }
     }
 }
