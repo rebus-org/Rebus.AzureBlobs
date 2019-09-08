@@ -10,12 +10,13 @@ namespace Rebus.AzureBlobs.Tests.DataBus
     public class AzureBlobsDataBusStorageFactory : IDataBusStorageFactory
     {
         readonly string _containerName = $"container-{Guid.NewGuid().ToString().Substring(0, 3)}".ToLowerInvariant();
+        readonly FakeRebusTime _fakeRebusTime = new FakeRebusTime();
 
         public IDataBusStorage Create()
         {
             Console.WriteLine($"Creating blobs data bus storage for container {_containerName}");
 
-            return new AzureBlobsDataBusStorage(AzureConfig.StorageAccount, _containerName, new ConsoleLoggerFactory(false));
+            return new AzureBlobsDataBusStorage(AzureConfig.StorageAccount, _containerName, new ConsoleLoggerFactory(false), _fakeRebusTime);
         }
 
         public void CleanUp()
@@ -26,5 +27,7 @@ namespace Rebus.AzureBlobs.Tests.DataBus
                 .GetContainerReference(_containerName)
                 .DeleteIfExistsAsync());
         }
+
+        public void FakeIt(DateTimeOffset fakeTime) => _fakeRebusTime.SetNow(fakeTime);
     }
 }

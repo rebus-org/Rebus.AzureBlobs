@@ -4,12 +4,12 @@ using Microsoft.Azure.Storage.RetryPolicies;
 using Rebus.DataBus;
 using Rebus.Extensions;
 using Rebus.Logging;
-using Rebus.Time;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Threading.Tasks;
+using Rebus.Time;
 
 namespace Rebus.AzureBlobs.DataBus
 {
@@ -19,6 +19,7 @@ namespace Rebus.AzureBlobs.DataBus
     public class AzureBlobsDataBusStorage : IDataBusStorage
     {
         readonly CloudBlobClient _client;
+        readonly IRebusTime _rebusTime;
         readonly string _containerName;
         readonly ILog _log;
 
@@ -27,11 +28,12 @@ namespace Rebus.AzureBlobs.DataBus
         /// <summary>
         /// Creates the data bus storage
         /// </summary>
-        public AzureBlobsDataBusStorage(CloudStorageAccount storageAccount, string containerName, IRebusLoggerFactory loggerFactory)
+        public AzureBlobsDataBusStorage(CloudStorageAccount storageAccount, string containerName, IRebusLoggerFactory loggerFactory, IRebusTime rebusTime)
         {
             if (storageAccount == null) throw new ArgumentNullException(nameof(storageAccount));
             if (containerName == null) throw new ArgumentNullException(nameof(containerName));
             if (loggerFactory == null) throw new ArgumentNullException(nameof(loggerFactory));
+            _rebusTime = rebusTime ?? throw new ArgumentNullException(nameof(rebusTime));
             _containerName = containerName.ToLowerInvariant();
             _client = storageAccount.CreateCloudBlobClient();
             _log = loggerFactory.GetLogger<AzureBlobsDataBusStorage>();
@@ -62,7 +64,7 @@ namespace Rebus.AzureBlobs.DataBus
 
                 var standardMetadata = new Dictionary<string, string>
                 {
-                    {MetadataKeys.SaveTime, RebusTime.Now.ToString("O")}
+                    {MetadataKeys.SaveTime, _rebusTime.Now.ToString("O")}
                 };
 
                 var metadataToWrite = standardMetadata
@@ -118,9 +120,9 @@ namespace Rebus.AzureBlobs.DataBus
             }
         }
 
-        static async Task UpdateLastReadTime(ICloudBlob blob)
+        async Task UpdateLastReadTime(ICloudBlob blob)
         {
-            blob.Metadata[MetadataKeys.ReadTime] = RebusTime.Now.ToString("O");
+            blob.Metadata[MetadataKeys.ReadTime] = _rebusTime.Now.ToString("O");
 
             await blob.SetMetadataAsync();
         }

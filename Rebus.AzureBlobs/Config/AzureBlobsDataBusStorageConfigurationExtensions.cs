@@ -3,6 +3,8 @@ using Rebus.AzureBlobs.DataBus;
 using Rebus.DataBus;
 using Rebus.Logging;
 using System;
+using Rebus.Time;
+
 // ReSharper disable UnusedMember.Global
 
 namespace Rebus.Config
@@ -40,7 +42,13 @@ namespace Rebus.Config
 
         static void Configure(StandardConfigurer<IDataBusStorage> configurer, string containerName, CloudStorageAccount cloudStorageAccount)
         {
-            configurer.Register(c => new AzureBlobsDataBusStorage(cloudStorageAccount,containerName, c.Get<IRebusLoggerFactory>()));
+            configurer.Register(c =>
+            {
+                var rebusLoggerFactory = c.Get<IRebusLoggerFactory>();
+                var rebusTime = c.Get<IRebusTime>();
+
+                return new AzureBlobsDataBusStorage(cloudStorageAccount, containerName, rebusLoggerFactory, rebusTime);
+            });
         }
     }
 }
