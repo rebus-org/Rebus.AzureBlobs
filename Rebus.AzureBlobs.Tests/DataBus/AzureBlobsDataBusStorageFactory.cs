@@ -4,6 +4,7 @@ using Rebus.DataBus;
 using Rebus.Logging;
 using Rebus.Tests.Contracts.DataBus;
 using System;
+using Rebus.Config;
 
 namespace Rebus.AzureBlobs.Tests.DataBus
 {
@@ -16,7 +17,9 @@ namespace Rebus.AzureBlobs.Tests.DataBus
         {
             Console.WriteLine($"Creating blobs data bus storage for container {_containerName}");
 
-            return new AzureBlobsDataBusStorage(AzureConfig.StorageAccount, _containerName, new ConsoleLoggerFactory(false), _fakeRebusTime);
+            var container = AzureConfig.StorageAccount.CreateCloudBlobClient().GetContainerReference(_containerName);
+
+            return new AzureBlobsDataBusStorage(new ConsoleLoggerFactory(false), _fakeRebusTime, new AzureBlobsDataBusStorageOptions(), container);
         }
 
         public void CleanUp()

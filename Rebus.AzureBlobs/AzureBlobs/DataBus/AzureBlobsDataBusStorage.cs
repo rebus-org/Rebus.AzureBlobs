@@ -10,8 +10,8 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Rebus.Config;
 using Rebus.Time;
 
 namespace Rebus.AzureBlobs.DataBus
@@ -21,7 +21,8 @@ namespace Rebus.AzureBlobs.DataBus
     /// </summary>
     public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManagement
     {
-        readonly CloudBlobClient _client;
+        readonly AzureBlobsDataBusStorageOptions _options;
+        readonly CloudBlobContainer _container;
         readonly IRebusTime _rebusTime;
         readonly string _containerName;
         readonly ILog _log;
@@ -31,14 +32,13 @@ namespace Rebus.AzureBlobs.DataBus
         /// <summary>
         /// Creates the data bus storage
         /// </summary>
-        public AzureBlobsDataBusStorage(CloudStorageAccount storageAccount, string containerName, IRebusLoggerFactory loggerFactory, IRebusTime rebusTime)
+        public AzureBlobsDataBusStorage(IRebusLoggerFactory loggerFactory, IRebusTime rebusTime, AzureBlobsDataBusStorageOptions options, CloudBlobContainer cloudBlobContainer)
         {
-            if (storageAccount == null) throw new ArgumentNullException(nameof(storageAccount));
-            if (containerName == null) throw new ArgumentNullException(nameof(containerName));
             if (loggerFactory == null) throw new ArgumentNullException(nameof(loggerFactory));
             _rebusTime = rebusTime ?? throw new ArgumentNullException(nameof(rebusTime));
-            _containerName = containerName.ToLowerInvariant();
-            _client = storageAccount.CreateCloudBlobClient();
+            _options = options ?? throw new ArgumentNullException(nameof(options));
+            _container = cloudBlobContainer ?? throw new ArgumentNullException(nameof(cloudBlobContainer));
+            _containerName = cloudBlobContainer.Name;
             _log = loggerFactory.GetLogger<AzureBlobsDataBusStorage>();
         }
 
@@ -47,23 +47,25 @@ namespace Rebus.AzureBlobs.DataBus
         /// </summary>
         public async Task Save(string id, Stream source, Dictionary<string, string> metadata = null)
         {
-            var container = _client.GetContainerReference(_containerName);
-
-            if (!_containerInitialized)
+            if (_options.AutomaticallyCreateContainer)
             {
-                if (!await container.ExistsAsync())
+                if (!_containerInitialized)
                 {
-                    _log.Info("Container {0} does not exist - will create it now", _containerName);
-                    await container.CreateIfNotExistsAsync();
+                    if (!await _container.ExistsAsync())
+                    {
+                        _log.Info("Container {0} does not exist - will create it now", _containerName);
+                        await _container.CreateIfNotExistsAsync();
+                    }
+
+                    _containerInitialized = true;
                 }
-                _containerInitialized = true;
             }
 
             var blobName = GetBlobName(id);
 
             try
             {
-                var blob = container.GetBlockBlobReference(blobName);
+                var blob = _container.GetBlockBlobReference(blobName);
 
                 var standardMetadata = new Dictionary<string, string>
                 {
@@ -81,7 +83,7 @@ namespace Rebus.AzureBlobs.DataBus
                 await blob.UploadFromStreamAsync(
                     source: source,
                     accessCondition: AccessCondition.GenerateEmptyCondition(),
-                    options: new BlobRequestOptions {RetryPolicy = new ExponentialRetry()},
+                    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
                     operationContext: new OperationContext()
                 );
             }
@@ -99,20 +101,21 @@ namespace Rebus.AzureBlobs.DataBus
             var blobName = GetBlobName(id);
             try
             {
-                var container = _client.GetContainerReference(_containerName);
-
-                var blob = await container.GetBlobReferenceFromServerAsync(
+                var blob = await _container.GetBlobReferenceFromServerAsync(
                     blobName: blobName,
                     accessCondition: AccessCondition.GenerateEmptyCondition(),
-                    options: new BlobRequestOptions {RetryPolicy = new ExponentialRetry()},
+                    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
                     operationContext: new OperationContext()
                 );
 
-                await UpdateLastReadTime(blob);
+                if (_options.UpdateLastReadTime)
+                {
+                    await UpdateLastReadTime(blob);
+                }
 
                 return await blob.OpenReadAsync(
                     accessCondition: AccessCondition.GenerateEmptyCondition(),
-                    options: new BlobRequestOptions {RetryPolicy = new ExponentialRetry()},
+                    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
                     operationContext: new OperationContext()
                 );
             }
@@ -138,12 +141,10 @@ namespace Rebus.AzureBlobs.DataBus
             var blobName = GetBlobName(id);
             try
             {
-                var container = _client.GetContainerReference(_containerName);
-
-                var blob = await container.GetBlobReferenceFromServerAsync(
+                var blob = await _container.GetBlobReferenceFromServerAsync(
                     blobName: blobName,
                     accessCondition: AccessCondition.GenerateEmptyCondition(),
-                    options: new BlobRequestOptions {RetryPolicy = new ExponentialRetry()},
+                    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
                     operationContext: new OperationContext()
                 );
 
@@ -169,12 +170,10 @@ namespace Rebus.AzureBlobs.DataBus
 
             try
             {
-                var container = _client.GetContainerReference(_containerName);
-
-                var blob = await container.GetBlobReferenceFromServerAsync(
+                var blob = await _container.GetBlobReferenceFromServerAsync(
                     blobName: blobName,
                     accessCondition: AccessCondition.GenerateEmptyCondition(),
-                    options: new BlobRequestOptions {RetryPolicy = new ExponentialRetry()},
+                    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
                     operationContext: new OperationContext()
                 );
 
@@ -189,13 +188,11 @@ namespace Rebus.AzureBlobs.DataBus
         /// <inheritdoc />
         public IEnumerable<string> Query(TimeRange readTime = null, TimeRange saveTime = null)
         {
-            var container = _client.GetContainerReference(_containerName);
-
             BlobContinuationToken blobContinuationToken = null;
 
             do
             {
-                var results = container.ListBlobsSegmented(blobContinuationToken);
+                var results = _container.ListBlobsSegmented(blobContinuationToken);
 
                 foreach (var result in results.Results.OfType<CloudBlockBlob>())
                 {

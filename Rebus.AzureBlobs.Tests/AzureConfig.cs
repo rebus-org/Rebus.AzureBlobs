@@ -9,7 +9,8 @@ namespace Rebus.AzureBlobs.Tests
     {
         public static CloudStorageAccount StorageAccount => CloudStorageAccount.Parse(ConnectionString);
 
-        public static string ConnectionString => ConnectionStringFromFileOrNull(Path.Combine(GetBaseDirectory(), "azure_storage_connection_string.txt"))
+        public static string ConnectionString => "UseDevelopmentStorage=true"
+                                         ?? ConnectionStringFromFileOrNull(Path.Combine(GetBaseDirectory(), "azure_storage_connection_string.txt"))
                                          ?? ConnectionStringFromEnvironmentVariable("rebus2_storage_connection_string")
                                          ?? Throw("Could not find Azure Storage connection string!");
 
