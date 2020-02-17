@@ -13,6 +13,8 @@ using System.Net;
 using System.Threading.Tasks;
 using Rebus.Config;
 using Rebus.Time;
+// ReSharper disable ArgumentsStyleOther
+// ReSharper disable ArgumentsStyleNamedExpression
 
 namespace Rebus.AzureBlobs.DataBus
 {
@@ -130,7 +132,11 @@ namespace Rebus.AzureBlobs.DataBus
         {
             blob.Metadata[MetadataKeys.ReadTime] = _rebusTime.Now.ToString("O");
 
-            await blob.SetMetadataAsync();
+            await blob.SetMetadataAsync(
+                accessCondition: AccessCondition.GenerateEmptyCondition(),
+                options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
+                operationContext: new OperationContext()
+            );
         }
 
         /// <summary>

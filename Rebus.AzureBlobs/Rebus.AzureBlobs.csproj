@@ -44,7 +44,7 @@
   <ItemGroup>
     <PackageReference Include="microsoft.azure.keyvault.core" Version="3.0.3" />
     <PackageReference Include="microsoft.azure.storage.blob" Version="11.0.0" />
-    <PackageReference Include="rebus" Version="6.0.0-b16" />
+    <PackageReference Include="rebus" Version="6.0.0" />
   </ItemGroup>
   <Target Name="PreBuild" BeforeTargets="PreBuildEvent">
     <Exec Command="$(ProjectDir)..\scripts\patch_assemblyinfo.cmd $(ProjectDir)" />
