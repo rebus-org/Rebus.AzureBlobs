@@ -21,4 +21,8 @@
 ## 0.5.1
 * Fix race condition when reading attachment concurrently and updating last read time
 
+## 0.5.2
+* Update microsoft.azure.keyvault.core to 3.0.5 and microsoft.azure.storage.blob to 11.2.3
+
+
 [oseku]: https://github.com/oseku
