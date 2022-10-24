@@ -36,7 +36,7 @@ public class ReproduceRaceConditionWhenReadingDataBusAttachments : FixtureBase
         Using(new Disposable(() => AsyncHelpers.RunSync(() => _container.DeleteIfExistsAsync())));
     }
 
-    [TestCase(50)]
+    [TestCase(20)]
     public async Task JustDoItWithTheBus(int count)
     {
         var failures = new ConcurrentQueue<Exception>();
@@ -49,9 +49,10 @@ public class ReproduceRaceConditionWhenReadingDataBusAttachments : FixtureBase
             try
             {
                 await using var source = await attachment.OpenRead();
+
                 _ = await new StreamReader(source).ReadToEndAsync();
             }
-            catch(Exception exception)
+            catch (Exception exception)
             {
                 failures.Enqueue(exception);
             }
@@ -70,16 +71,16 @@ public class ReproduceRaceConditionWhenReadingDataBusAttachments : FixtureBase
             })
             .Start();
 
-        var data = Enumerable.Range(0, 8192).Select(_ => (byte)Random.Shared.Next(256)).ToArray();
+        var data = Enumerable.Range(0, 10 * 1024 * 1024).Select(_ => (byte)Random.Shared.Next(256)).ToArray();
 
         var attachment = await activator.Bus.Advanced.DataBus.CreateAttachment(new MemoryStream(data));
 
         await Task.WhenAll(Enumerable.Range(0, count).Select(_ => activator.Bus.SendLocal(attachment)));
 
         sharedCounter.WaitForResetEvent(timeoutSeconds: 10);
-        
+
         Assert.That(failures.Count, Is.EqualTo(0), $@"Number of failures was > 0 – here's the first one:
 
-{failures.First()}");
+{failures.FirstOrDefault()}");
     }
 }

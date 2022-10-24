@@ -18,4 +18,7 @@
 * Update to Rebus 6 stable
 * Hopefully fix race condition when updating last read time of data bus attachments
 
+## 0.5.1
+* Fix race condition when reading attachment concurrently and updating last read time
+
 [oseku]: https://github.com/oseku

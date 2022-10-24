@@ -115,10 +115,27 @@ public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManageme
                 await UpdateLastReadTime(blob);
             }
 
+            // for some reason, the access condition passed to OpenRead does not apply to the second HTTP request issued
+            // from the operation - therefore, we need to hook into this if-match part and do this: 
+            var operationContext = new OperationContext();
+
+            operationContext.SendingRequest += (_, e) =>
+            {
+                var request = e.Request;
+                var headers = request.Headers;
+
+                if (headers.Contains("if-match"))
+                {
+                    headers.Remove("if-match");
+                }
+
+                headers.Add("if-match", "*");
+            };
+
             return await blob.OpenReadAsync(
                 accessCondition: AccessCondition.GenerateEmptyCondition(),
                 options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
-                operationContext: new OperationContext()
+                operationContext: operationContext
             );
         }
         catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
