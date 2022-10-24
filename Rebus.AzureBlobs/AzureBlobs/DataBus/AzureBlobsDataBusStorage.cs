@@ -16,240 +16,239 @@ using Rebus.Time;
 // ReSharper disable ArgumentsStyleOther
 // ReSharper disable ArgumentsStyleNamedExpression
 
-namespace Rebus.AzureBlobs.DataBus
+namespace Rebus.AzureBlobs.DataBus;
+
+/// <summary>
+/// Implementation of <see cref="IDataBusStorage"/> that uses Azure blobs to store data
+/// </summary>
+public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManagement
 {
+    readonly AzureBlobsDataBusStorageOptions _options;
+    readonly CloudBlobContainer _container;
+    readonly IRebusTime _rebusTime;
+    readonly string _containerName;
+    readonly ILog _log;
+
+    bool _containerInitialized;
+
     /// <summary>
-    /// Implementation of <see cref="IDataBusStorage"/> that uses Azure blobs to store data
+    /// Creates the data bus storage
     /// </summary>
-    public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManagement
+    public AzureBlobsDataBusStorage(IRebusLoggerFactory loggerFactory, IRebusTime rebusTime, AzureBlobsDataBusStorageOptions options, CloudBlobContainer cloudBlobContainer)
     {
-        readonly AzureBlobsDataBusStorageOptions _options;
-        readonly CloudBlobContainer _container;
-        readonly IRebusTime _rebusTime;
-        readonly string _containerName;
-        readonly ILog _log;
+        if (loggerFactory == null) throw new ArgumentNullException(nameof(loggerFactory));
+        _rebusTime = rebusTime ?? throw new ArgumentNullException(nameof(rebusTime));
+        _options = options ?? throw new ArgumentNullException(nameof(options));
+        _container = cloudBlobContainer ?? throw new ArgumentNullException(nameof(cloudBlobContainer));
+        _containerName = cloudBlobContainer.Name;
+        _log = loggerFactory.GetLogger<AzureBlobsDataBusStorage>();
+    }
 
-        bool _containerInitialized;
-
-        /// <summary>
-        /// Creates the data bus storage
-        /// </summary>
-        public AzureBlobsDataBusStorage(IRebusLoggerFactory loggerFactory, IRebusTime rebusTime, AzureBlobsDataBusStorageOptions options, CloudBlobContainer cloudBlobContainer)
+    /// <summary>
+    /// Saves the data from the given source stream under the given ID
+    /// </summary>
+    public async Task Save(string id, Stream source, Dictionary<string, string> metadata = null)
+    {
+        if (_options.AutomaticallyCreateContainer)
         {
-            if (loggerFactory == null) throw new ArgumentNullException(nameof(loggerFactory));
-            _rebusTime = rebusTime ?? throw new ArgumentNullException(nameof(rebusTime));
-            _options = options ?? throw new ArgumentNullException(nameof(options));
-            _container = cloudBlobContainer ?? throw new ArgumentNullException(nameof(cloudBlobContainer));
-            _containerName = cloudBlobContainer.Name;
-            _log = loggerFactory.GetLogger<AzureBlobsDataBusStorage>();
-        }
-
-        /// <summary>
-        /// Saves the data from the given source stream under the given ID
-        /// </summary>
-        public async Task Save(string id, Stream source, Dictionary<string, string> metadata = null)
-        {
-            if (_options.AutomaticallyCreateContainer)
+            if (!_containerInitialized)
             {
-                if (!_containerInitialized)
+                if (!await _container.ExistsAsync())
                 {
-                    if (!await _container.ExistsAsync())
-                    {
-                        _log.Info("Container {0} does not exist - will create it now", _containerName);
-                        await _container.CreateIfNotExistsAsync();
-                    }
-
-                    _containerInitialized = true;
-                }
-            }
-
-            var blobName = GetBlobName(id);
-
-            try
-            {
-                var blob = _container.GetBlockBlobReference(blobName);
-
-                var standardMetadata = new Dictionary<string, string>
-                {
-                    {MetadataKeys.SaveTime, _rebusTime.Now.ToString("O")}
-                };
-
-                var metadataToWrite = standardMetadata
-                    .MergedWith(metadata ?? new Dictionary<string, string>());
-
-                foreach (var kvp in metadataToWrite)
-                {
-                    blob.Metadata[kvp.Key] = kvp.Value;
+                    _log.Info("Container {containerName} does not exist - will create it now", _containerName);
+                    await _container.CreateIfNotExistsAsync();
                 }
 
-                await blob.UploadFromStreamAsync(
-                    source: source,
-                    accessCondition: AccessCondition.GenerateEmptyCondition(),
-                    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
-                    operationContext: new OperationContext()
-                );
-            }
-            catch (Exception exception)
-            {
-                throw new IOException($"Could not upload data to blob named '{blobName}' in the '{_containerName}' container", exception);
+                _containerInitialized = true;
             }
         }
 
-        /// <summary>
-        /// Opens the data stored under the given ID for reading
-        /// </summary>
-        public async Task<Stream> Read(string id)
+        var blobName = GetBlobName(id);
+
+        try
         {
-            var blobName = GetBlobName(id);
-            try
+            var blob = _container.GetBlockBlobReference(blobName);
+
+            var standardMetadata = new Dictionary<string, string>
             {
-                var blob = await _container.GetBlobReferenceFromServerAsync(
-                    blobName: blobName,
-                    accessCondition: AccessCondition.GenerateEmptyCondition(),
-                    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
-                    operationContext: new OperationContext()
-                );
+                {MetadataKeys.SaveTime, _rebusTime.Now.ToString("O")}
+            };
 
-                if (_options.UpdateLastReadTime)
-                {
-                    await UpdateLastReadTime(blob);
-                }
+            var metadataToWrite = standardMetadata
+                .MergedWith(metadata ?? new Dictionary<string, string>());
 
-                return await blob.OpenReadAsync(
-                    accessCondition: AccessCondition.GenerateEmptyCondition(),
-                    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
-                    operationContext: new OperationContext()
-                );
-            }
-            catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
+            foreach (var kvp in metadataToWrite)
             {
-                throw new ArgumentException(
-                    $"Could not find blob named '{blobName}' in the '{_containerName}' container", exception);
+                blob.Metadata[kvp.Key] = kvp.Value;
             }
-        }
 
-        async Task UpdateLastReadTime(ICloudBlob blob)
-        {
-            blob.Metadata[MetadataKeys.ReadTime] = _rebusTime.Now.ToString("O");
-
-            await blob.SetMetadataAsync(
+            await blob.UploadFromStreamAsync(
+                source: source,
                 accessCondition: AccessCondition.GenerateEmptyCondition(),
                 options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
                 operationContext: new OperationContext()
             );
         }
-
-        /// <summary>
-        /// Loads the metadata stored with the given ID
-        /// </summary>
-        public async Task<Dictionary<string, string>> ReadMetadata(string id)
+        catch (Exception exception)
         {
-            var blobName = GetBlobName(id);
-            try
-            {
-                var blob = await _container.GetBlobReferenceFromServerAsync(
-                    blobName: blobName,
-                    accessCondition: AccessCondition.GenerateEmptyCondition(),
-                    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
-                    operationContext: new OperationContext()
-                );
-
-                var metadata = new Dictionary<string, string>(blob.Metadata)
-                {
-                    [MetadataKeys.Length] = blob.Properties.Length.ToString()
-                };
-
-                return metadata;
-            }
-            catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
-            {
-                throw new ArgumentException($"Could not find blob named '{blobName}' in the '{_containerName}' container", exception);
-            }
+            throw new IOException($"Could not upload data to blob named '{blobName}' in the '{_containerName}' container", exception);
         }
+    }
 
-        static string GetBlobName(string id) => $"data-{id.ToLowerInvariant()}.dat";
-
-        /// <inheritdoc />
-        public async Task Delete(string id)
+    /// <summary>
+    /// Opens the data stored under the given ID for reading
+    /// </summary>
+    public async Task<Stream> Read(string id)
+    {
+        var blobName = GetBlobName(id);
+        try
         {
-            var blobName = GetBlobName(id);
+            var blob = await _container.GetBlobReferenceFromServerAsync(
+                blobName: blobName,
+                accessCondition: AccessCondition.GenerateEmptyCondition(),
+                options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
+                operationContext: new OperationContext()
+            );
 
-            try
+            if (_options.UpdateLastReadTime)
             {
-                var blob = await _container.GetBlobReferenceFromServerAsync(
-                    blobName: blobName,
-                    accessCondition: AccessCondition.GenerateEmptyCondition(),
-                    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
-                    operationContext: new OperationContext()
-                );
+                await UpdateLastReadTime(blob);
+            }
 
-                await blob.DeleteAsync();
-            }
-            catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
-            {
-                // it's ok
-            }
+            return await blob.OpenReadAsync(
+                accessCondition: AccessCondition.GenerateEmptyCondition(),
+                options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
+                operationContext: new OperationContext()
+            );
         }
-
-        /// <inheritdoc />
-        public IEnumerable<string> Query(TimeRange readTime = null, TimeRange saveTime = null)
+        catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
         {
-            BlobContinuationToken blobContinuationToken = null;
+            throw new ArgumentException(
+                $"Could not find blob named '{blobName}' in the '{_containerName}' container", exception);
+        }
+    }
 
-            do
+    async Task UpdateLastReadTime(ICloudBlob blob)
+    {
+        blob.Metadata[MetadataKeys.ReadTime] = _rebusTime.Now.ToString("O");
+
+        await blob.SetMetadataAsync(
+            accessCondition: AccessCondition.GenerateEmptyCondition(),
+            options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
+            operationContext: new OperationContext()
+        );
+    }
+
+    /// <summary>
+    /// Loads the metadata stored with the given ID
+    /// </summary>
+    public async Task<Dictionary<string, string>> ReadMetadata(string id)
+    {
+        var blobName = GetBlobName(id);
+        try
+        {
+            var blob = await _container.GetBlobReferenceFromServerAsync(
+                blobName: blobName,
+                accessCondition: AccessCondition.GenerateEmptyCondition(),
+                options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
+                operationContext: new OperationContext()
+            );
+
+            var metadata = new Dictionary<string, string>(blob.Metadata)
             {
-                var results = _container.ListBlobsSegmented(blobContinuationToken);
+                [MetadataKeys.Length] = blob.Properties.Length.ToString()
+            };
 
-                foreach (var result in results.Results.OfType<CloudBlockBlob>())
+            return metadata;
+        }
+        catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
+        {
+            throw new ArgumentException($"Could not find blob named '{blobName}' in the '{_containerName}' container", exception);
+        }
+    }
+
+    static string GetBlobName(string id) => $"data-{id.ToLowerInvariant()}.dat";
+
+    /// <inheritdoc />
+    public async Task Delete(string id)
+    {
+        var blobName = GetBlobName(id);
+
+        try
+        {
+            var blob = await _container.GetBlobReferenceFromServerAsync(
+                blobName: blobName,
+                accessCondition: AccessCondition.GenerateEmptyCondition(),
+                options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
+                operationContext: new OperationContext()
+            );
+
+            await blob.DeleteAsync();
+        }
+        catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
+        {
+            // it's ok
+        }
+    }
+
+    /// <inheritdoc />
+    public IEnumerable<string> Query(TimeRange readTime = null, TimeRange saveTime = null)
+    {
+        BlobContinuationToken blobContinuationToken = null;
+
+        do
+        {
+            var results = _container.ListBlobsSegmented(blobContinuationToken);
+
+            foreach (var result in results.Results.OfType<CloudBlockBlob>())
+            {
+                var fileName = Path.GetFileNameWithoutExtension(result.Name);
+                if (fileName == null) continue;
+
+                var id = fileName.Split('-').Last();
+
+                if (string.IsNullOrWhiteSpace(id)) continue;
+
+                // accelerate querying without criteria
+                if (readTime == null && saveTime == null) yield return id;
+
+                var metadata = AsyncHelpers.GetResult(() => ReadMetadata(id));
+
+                if (readTime != null)
                 {
-                    var fileName = Path.GetFileNameWithoutExtension(result.Name);
-                    if (fileName == null) continue;
-
-                    var id = fileName.Split('-').Last();
-
-                    if (string.IsNullOrWhiteSpace(id)) continue;
-
-                    // accelerate querying without criteria
-                    if (readTime == null && saveTime == null) yield return id;
-
-                    var metadata = AsyncHelpers.GetResult(() => ReadMetadata(id));
-
-                    if (readTime != null)
+                    if (metadata.TryGetValue(MetadataKeys.ReadTime, out var readTimeString))
                     {
-                        if (metadata.TryGetValue(MetadataKeys.ReadTime, out var readTimeString))
-                        {
-                            if (DateTimeOffset.TryParseExact(readTimeString, "o", CultureInfo.InvariantCulture,
+                        if (DateTimeOffset.TryParseExact(readTimeString, "o", CultureInfo.InvariantCulture,
                                 DateTimeStyles.RoundtripKind, out var readTimeValue))
-                            {
-                                if (!IsWithin(readTime, readTimeValue)) continue;
-                            }
-                        }
-                    }
-
-                    if (saveTime != null)
-                    {
-                        if (metadata.TryGetValue(MetadataKeys.SaveTime, out var saveTimeString))
                         {
-                            if (DateTimeOffset.TryParseExact(saveTimeString, "o", CultureInfo.InvariantCulture,
-                                DateTimeStyles.RoundtripKind, out var saveTimeValue))
-                            {
-                                if (!IsWithin(saveTime, saveTimeValue)) continue;
-                            }
+                            if (!IsWithin(readTime, readTimeValue)) continue;
                         }
                     }
-
-                    yield return id;
                 }
 
-                blobContinuationToken = results.ContinuationToken;
+                if (saveTime != null)
+                {
+                    if (metadata.TryGetValue(MetadataKeys.SaveTime, out var saveTimeString))
+                    {
+                        if (DateTimeOffset.TryParseExact(saveTimeString, "o", CultureInfo.InvariantCulture,
+                                DateTimeStyles.RoundtripKind, out var saveTimeValue))
+                        {
+                            if (!IsWithin(saveTime, saveTimeValue)) continue;
+                        }
+                    }
+                }
 
-            } while (blobContinuationToken != null);
-        }
+                yield return id;
+            }
 
-        static bool IsWithin(TimeRange timeRange, DateTimeOffset time)
-        {
-            return time >= (timeRange?.From ?? DateTimeOffset.MinValue)
-                   && time < (timeRange?.To ?? DateTimeOffset.MaxValue);
-        }
+            blobContinuationToken = results.ContinuationToken;
+
+        } while (blobContinuationToken != null);
+    }
+
+    static bool IsWithin(TimeRange timeRange, DateTimeOffset time)
+    {
+        return time >= (timeRange?.From ?? DateTimeOffset.MinValue)
+               && time < (timeRange?.To ?? DateTimeOffset.MaxValue);
     }
 }

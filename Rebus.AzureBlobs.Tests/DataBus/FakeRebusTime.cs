@@ -1,17 +1,16 @@
 ﻿using System;
 using Rebus.Time;
 
-namespace Rebus.AzureBlobs.Tests.DataBus
+namespace Rebus.AzureBlobs.Tests.DataBus;
+
+class FakeRebusTime : IRebusTime
 {
-    class FakeRebusTime : IRebusTime
+    DateTimeOffset? _fakeNow;
+
+    public DateTimeOffset Now => _fakeNow ?? DateTimeOffset.Now;
+
+    public void SetNow(DateTimeOffset time)
     {
-        DateTimeOffset? _fakeNow;
-
-        public DateTimeOffset Now => _fakeNow ?? DateTimeOffset.Now;
-
-        public void SetNow(DateTimeOffset time)
-        {
-            _fakeNow = time;
-        }
+        _fakeNow = time;
     }
 }

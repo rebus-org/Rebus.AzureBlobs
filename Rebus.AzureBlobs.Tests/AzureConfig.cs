@@ -3,49 +3,48 @@ using Rebus.Exceptions;
 using System;
 using System.IO;
 
-namespace Rebus.AzureBlobs.Tests
+namespace Rebus.AzureBlobs.Tests;
+
+public static class AzureConfig
 {
-    public static class AzureConfig
+    public static CloudStorageAccount StorageAccount => CloudStorageAccount.Parse(ConnectionString);
+
+    public static string ConnectionString => "UseDevelopmentStorage=true"
+                                             ?? ConnectionStringFromFileOrNull(Path.Combine(GetBaseDirectory(), "azure_storage_connection_string.txt"))
+                                             ?? ConnectionStringFromEnvironmentVariable("rebus2_storage_connection_string")
+                                             ?? Throw("Could not find Azure Storage connection string!");
+
+    static string GetBaseDirectory() => AppContext.BaseDirectory;
+
+    static string ConnectionStringFromFileOrNull(string filePath)
     {
-        public static CloudStorageAccount StorageAccount => CloudStorageAccount.Parse(ConnectionString);
-
-        public static string ConnectionString => "UseDevelopmentStorage=true"
-                                         ?? ConnectionStringFromFileOrNull(Path.Combine(GetBaseDirectory(), "azure_storage_connection_string.txt"))
-                                         ?? ConnectionStringFromEnvironmentVariable("rebus2_storage_connection_string")
-                                         ?? Throw("Could not find Azure Storage connection string!");
-
-        static string GetBaseDirectory() => AppContext.BaseDirectory;
-
-        static string ConnectionStringFromFileOrNull(string filePath)
+        if (!File.Exists(filePath))
         {
-            if (!File.Exists(filePath))
-            {
-                Console.WriteLine("Could not find file {0}", filePath);
-                return null;
-            }
-
-            Console.WriteLine("Using Azure Storage connection string from file {0}", filePath);
-            return File.ReadAllText(filePath);
+            Console.WriteLine("Could not find file {0}", filePath);
+            return null;
         }
 
-        static string ConnectionStringFromEnvironmentVariable(string environmentVariableName)
+        Console.WriteLine("Using Azure Storage connection string from file {0}", filePath);
+        return File.ReadAllText(filePath);
+    }
+
+    static string ConnectionStringFromEnvironmentVariable(string environmentVariableName)
+    {
+        var value = Environment.GetEnvironmentVariable(environmentVariableName);
+
+        if (value == null)
         {
-            var value = Environment.GetEnvironmentVariable(environmentVariableName);
-
-            if (value == null)
-            {
-                Console.WriteLine("Could not find env variable {0}", environmentVariableName);
-                return null;
-            }
-
-            Console.WriteLine("Using Azure Storage connection string from env variable {0}", environmentVariableName);
-
-            return value;
+            Console.WriteLine("Could not find env variable {0}", environmentVariableName);
+            return null;
         }
 
-        static string Throw(string message)
-        {
-            throw new RebusConfigurationException(message);
-        }
+        Console.WriteLine("Using Azure Storage connection string from env variable {0}", environmentVariableName);
+
+        return value;
+    }
+
+    static string Throw(string message)
+    {
+        throw new RebusConfigurationException(message);
     }
 }

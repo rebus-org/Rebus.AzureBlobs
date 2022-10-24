@@ -5,37 +5,36 @@ using Rebus.Logging;
 using System;
 // ReSharper disable UnusedMember.Global
 
-namespace Rebus.Config
+namespace Rebus.Config;
+
+/// <summary>
+/// Configuration extensions for Azure storage
+/// </summary>
+public static class AzureStorageSagaConfigurationExtensions
 {
     /// <summary>
-    /// Configuration extensions for Azure storage
+    /// Configures Rebus to store saga data snapshots in blob storage
     /// </summary>
-    public static class AzureStorageSagaConfigurationExtensions
+    public static void StoreInBlobStorage(this StandardConfigurer<ISagaSnapshotStorage> configurer, CloudStorageAccount cloudStorageAccount, string containerName = "RebusSagaStorage")
     {
-        /// <summary>
-        /// Configures Rebus to store saga data snapshots in blob storage
-        /// </summary>
-        public static void StoreInBlobStorage(this StandardConfigurer<ISagaSnapshotStorage> configurer, CloudStorageAccount cloudStorageAccount, string containerName = "RebusSagaStorage")
-        {
-            if (configurer == null) throw new ArgumentNullException(nameof(configurer));
-            if (cloudStorageAccount == null) throw new ArgumentNullException(nameof(cloudStorageAccount));
-            if (containerName == null) throw new ArgumentNullException(nameof(containerName));
+        if (configurer == null) throw new ArgumentNullException(nameof(configurer));
+        if (cloudStorageAccount == null) throw new ArgumentNullException(nameof(cloudStorageAccount));
+        if (containerName == null) throw new ArgumentNullException(nameof(containerName));
 
-            configurer.Register(c => new AzureStorageSagaSnapshotStorage(cloudStorageAccount, c.Get<IRebusLoggerFactory>(), containerName));
-        }
+        configurer.Register(c => new AzureStorageSagaSnapshotStorage(cloudStorageAccount, c.Get<IRebusLoggerFactory>(), containerName));
+    }
 
-        /// <summary>
-        /// Configures Rebus to store saga data snapshots in blob storage
-        /// </summary>
-        public static void StoreInBlobStorage(this StandardConfigurer<ISagaSnapshotStorage> configurer, string storageAccountConnectionString, string containerName = "RebusSagaStorage")
-        {
-            if (configurer == null) throw new ArgumentNullException(nameof(configurer));
-            if (storageAccountConnectionString == null) throw new ArgumentNullException(nameof(storageAccountConnectionString));
-            if (containerName == null) throw new ArgumentNullException(nameof(containerName));
+    /// <summary>
+    /// Configures Rebus to store saga data snapshots in blob storage
+    /// </summary>
+    public static void StoreInBlobStorage(this StandardConfigurer<ISagaSnapshotStorage> configurer, string storageAccountConnectionString, string containerName = "RebusSagaStorage")
+    {
+        if (configurer == null) throw new ArgumentNullException(nameof(configurer));
+        if (storageAccountConnectionString == null) throw new ArgumentNullException(nameof(storageAccountConnectionString));
+        if (containerName == null) throw new ArgumentNullException(nameof(containerName));
 
-            var storageAccount = CloudStorageAccount.Parse(storageAccountConnectionString);
+        var storageAccount = CloudStorageAccount.Parse(storageAccountConnectionString);
 
-            configurer.Register(c => new AzureStorageSagaSnapshotStorage(storageAccount, c.Get<IRebusLoggerFactory>(), containerName));
-        }
+        configurer.Register(c => new AzureStorageSagaSnapshotStorage(storageAccount, c.Get<IRebusLoggerFactory>(), containerName));
     }
 }
