@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="15.0">
 	<PropertyGroup>
 		<OutputType>Library</OutputType>
-		<LangVersion>10</LangVersion>
+		<LangVersion>11</LangVersion>
 		<RootNamespace>Rebus</RootNamespace>
 		<AssemblyName>Rebus.AzureBlobs</AssemblyName>
 		<TargetFramework>netstandard2.0</TargetFramework>
@@ -9,7 +9,7 @@
 		<PackageProjectUrl>https://rebus.fm/what-is-rebus/</PackageProjectUrl>
 		<PackageDescription>Provides an Azure Blobs-based data bus storage implementation</PackageDescription>
 		<Copyright>Copyright Rebus FM ApS 2012</Copyright>
-		<PackageTags>rebus events</PackageTags>
+		<PackageTags>rebus azure blob storage blobs azure-blobs</PackageTags>
 		<RepositoryUrl>https://github.com/rebus-org/Rebus</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageIcon>little_rebusbus2_copy-500x500.png</PackageIcon>
@@ -24,6 +24,6 @@
 	<ItemGroup>
 		<PackageReference Include="microsoft.azure.keyvault.core" Version="3.0.5" />
 		<PackageReference Include="microsoft.azure.storage.blob" Version="11.2.3" />
-		<PackageReference Include="rebus" Version="6.0.0" />
+		<PackageReference Include="rebus" Version="8.0.0-alpha01" />
 	</ItemGroup>
 </Project>
