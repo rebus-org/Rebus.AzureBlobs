@@ -5,9 +5,9 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Azure.Storage;
 using Microsoft.Azure.Storage.Blob;
-using Nito.Disposables;
 using NUnit.Framework;
 using Rebus.Activation;
+using Rebus.AzureBlobs.Tests.Extensions;
 using Rebus.Config;
 using Rebus.DataBus;
 using Rebus.Tests.Contracts;
@@ -33,7 +33,7 @@ public class ReproduceRaceConditionWhenReadingDataBusAttachments : FixtureBase
         _storageAccount = AzureConfig.StorageAccount;
         _container = _storageAccount.CreateCloudBlobClient().GetContainerReference(_containerName);
 
-        Using(new Disposable(() => AsyncHelpers.RunSync(() => _container.DeleteIfExistsAsync())));
+        Using(_container.AsDisposable(c => c.DeleteIfExists()));
     }
 
     [TestCase(20)]
