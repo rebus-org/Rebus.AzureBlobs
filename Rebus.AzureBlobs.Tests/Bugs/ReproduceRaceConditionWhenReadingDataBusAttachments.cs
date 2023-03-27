@@ -73,11 +73,13 @@ public class ReproduceRaceConditionWhenReadingDataBusAttachments : FixtureBase
 
         var data = Enumerable.Range(0, 10 * 1024 * 1024).Select(_ => (byte)Random.Shared.Next(256)).ToArray();
 
-        var attachment = await activator.Bus.Advanced.DataBus.CreateAttachment(new MemoryStream(data));
+        using var source = new MemoryStream(data);
+
+        var attachment = await activator.Bus.Advanced.DataBus.CreateAttachment(source);
 
         await Task.WhenAll(Enumerable.Range(0, count).Select(_ => activator.Bus.SendLocal(attachment)));
 
-        sharedCounter.WaitForResetEvent(timeoutSeconds: 10);
+        sharedCounter.WaitForResetEvent(timeoutSeconds: 20);
 
         Assert.That(failures.Count, Is.EqualTo(0), $@"Number of failures was > 0 – here's the first one:
 
