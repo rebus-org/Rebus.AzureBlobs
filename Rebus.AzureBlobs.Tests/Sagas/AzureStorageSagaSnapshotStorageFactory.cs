@@ -6,7 +6,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
 
 namespace Rebus.AzureBlobs.Tests.Sagas;
 
@@ -30,7 +29,7 @@ public class AzureStorageSagaSnapshotStorageFactory : ISagaSnapshotStorageFactor
 
     public IEnumerable<SagaDataSnapshot> GetAllSnapshots()
     {
-        var allBlobs = _storage.ListAllBlobs().Cast<BlobItem>()
+        var allBlobs = _storage.ListAllBlobs()
             .Select(b => new
             {
                 Parts = b.Name.Split('/')
