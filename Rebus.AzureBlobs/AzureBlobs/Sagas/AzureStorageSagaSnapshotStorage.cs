@@ -1,7 +1,4 @@
-﻿using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
-using Microsoft.Azure.Storage.RetryPolicies;
-using Newtonsoft.Json;
+﻿using Newtonsoft.Json;
 using Rebus.Auditing.Sagas;
 using Rebus.Logging;
 using Rebus.Sagas;
@@ -9,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
 
 namespace Rebus.AzureBlobs.Sagas;
 
@@ -17,23 +15,21 @@ namespace Rebus.AzureBlobs.Sagas;
 /// </summary>
 public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
 {
-    static readonly JsonSerializerSettings DataSettings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.All };
-    static readonly JsonSerializerSettings MetadataSettings = new JsonSerializerSettings { TypeNameHandling = TypeNameHandling.None };
+    static readonly JsonSerializerSettings DataSettings = new() { TypeNameHandling = TypeNameHandling.All };
+    static readonly JsonSerializerSettings MetadataSettings = new() { TypeNameHandling = TypeNameHandling.None };
     static readonly Encoding TextEncoding = Encoding.UTF8;
 
-    readonly CloudBlobContainer _container;
+    readonly BlobContainerClient _blobContainerClient;
     readonly ILog _log;
 
     /// <summary>
     /// Creates the storage
     /// </summary>
-    public AzureStorageSagaSnapshotStorage(CloudStorageAccount storageAccount, IRebusLoggerFactory loggerFactory, string containerName = "RebusSagaStorage")
+    public AzureStorageSagaSnapshotStorage(BlobContainerClient blobContainerClient, IRebusLoggerFactory loggerFactory)
     {
-        if (storageAccount == null) throw new ArgumentNullException(nameof(storageAccount));
         if (loggerFactory == null) throw new ArgumentNullException(nameof(loggerFactory));
-
+        _blobContainerClient = blobContainerClient ?? throw new ArgumentNullException(nameof(blobContainerClient));
         _log = loggerFactory.GetLogger<AzureStorageSagaSnapshotStorage>();
-        _container = storageAccount.CreateCloudBlobClient().GetContainerReference(containerName.ToLowerInvariant());
     }
 
     /// <summary>
@@ -43,8 +39,8 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
     {
         var dataRef = $"{sagaData.Id:N}/{sagaData.Revision:0000000000}/data.json";
         var metaDataRef = $"{sagaData.Id:N}/{sagaData.Revision:0000000000}/metadata.json";
-        var dataBlob = _container.GetBlockBlobReference(dataRef);
-        var metaDataBlob = _container.GetBlockBlobReference(metaDataRef);
+        var dataBlob = _blobContainerClient.GetBlockBlobReference(dataRef);
+        var metaDataBlob = _blobContainerClient.GetBlockBlobReference(metaDataRef);
         dataBlob.Properties.ContentType = "application/json";
         metaDataBlob.Properties.ContentType = "application/json";
         await dataBlob.UploadTextAsync(JsonConvert.SerializeObject(sagaData, DataSettings), TextEncoding, DefaultAccessCondition, DefaultRequestOptions, new OperationContext());
@@ -66,7 +62,7 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
 
         while (true)
         {
-            var result = AsyncHelpers.GetResult(() => _container.ListBlobsSegmentedAsync("", true, BlobListingDetails.None, 100, continuationToken, DefaultRequestOptions, new OperationContext()));
+            var result = AsyncHelpers.GetResult(() => _blobContainerClient.ListBlobsSegmentedAsync("", true, BlobListingDetails.None, 100, continuationToken, DefaultRequestOptions, new OperationContext()));
 
             foreach (var item in result.Results)
             {
@@ -84,10 +80,10 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
     /// </summary>
     public void EnsureContainerExists()
     {
-        if (!AsyncHelpers.GetResult(() => _container.ExistsAsync()))
+        if (!AsyncHelpers.GetResult(() => _blobContainerClient.ExistsAsync()))
         {
-            _log.Info("Container {containerName} did not exist - it will be created now", _container.Name);
-            AsyncHelpers.RunSync(() => _container.CreateIfNotExistsAsync());
+            _log.Info("Container {containerName} did not exist - it will be created now", _blobContainerClient.Name);
+            AsyncHelpers.RunSync(() => _blobContainerClient.CreateIfNotExistsAsync());
         }
     }
 
@@ -103,7 +99,7 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
     public ISagaData GetSagaData(Guid sagaDataId, int revision)
     {
         var dataRef = $"{sagaDataId:N}/{revision:0000000000}/data.json";
-        var dataBlob = _container.GetBlockBlobReference(dataRef);
+        var dataBlob = _blobContainerClient.GetBlockBlobReference(dataRef);
         var json = GetBlobData(dataBlob);
         return (ISagaData)JsonConvert.DeserializeObject(json, DataSettings);
     }
@@ -114,7 +110,7 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
     public Dictionary<string, string> GetSagaMetaData(Guid sagaDataId, int revision)
     {
         var metaDataRef = $"{sagaDataId:N}/{revision:0000000000}/metadata.json";
-        var metaDataBlob = _container.GetBlockBlobReference(metaDataRef);
+        var metaDataBlob = _blobContainerClient.GetBlockBlobReference(metaDataRef);
         var json = GetBlobData(metaDataBlob);
         return JsonConvert.DeserializeObject<Dictionary<string, string>>(json, MetadataSettings);
     }
@@ -126,8 +122,8 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
     {
         AsyncHelpers.RunSync(async () =>
         {
-            await _container.DeleteIfExistsAsync();
-            await _container.CreateIfNotExistsAsync();
+            await _blobContainerClient.DeleteIfExistsAsync();
+            await _blobContainerClient.CreateIfNotExistsAsync();
         });
     }
 }

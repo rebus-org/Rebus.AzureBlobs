@@ -22,8 +22,7 @@
 	  </None>
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="microsoft.azure.keyvault.core" Version="3.0.5" />
-		<PackageReference Include="microsoft.azure.storage.blob" Version="11.2.3" />
+		<PackageReference Include="azure.storage.blobs" Version="12.15.1" />
 		<PackageReference Include="rebus" Version="8.0.0-alpha01" />
 	</ItemGroup>
 </Project>

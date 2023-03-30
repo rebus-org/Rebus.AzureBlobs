@@ -1,4 +1,3 @@
-using Microsoft.Azure.Storage.Blob;
 using Rebus.Auditing.Sagas;
 using Rebus.AzureBlobs.Sagas;
 using Rebus.Logging;
@@ -6,6 +5,8 @@ using Rebus.Tests.Contracts.Sagas;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 
 namespace Rebus.AzureBlobs.Tests.Sagas;
 
@@ -15,7 +16,9 @@ public class AzureStorageSagaSnapshotStorageFactory : ISagaSnapshotStorageFactor
 
     public AzureStorageSagaSnapshotStorageFactory()
     {
-        _storage = new AzureStorageSagaSnapshotStorage(AzureConfig.StorageAccount, new ConsoleLoggerFactory(false), $"RebusSagaSnapshotStorageTestContainer{DateTime.Now:yyyyMMddHHmmss}");
+        var containerName = $"RebusSagaSnapshotStorageTestContainer{DateTime.Now:yyyyMMddHHmmss}";
+        var blobContainerClient = new BlobContainerClient(AzureConfig.ConnectionString, containerName);
+        _storage = new AzureStorageSagaSnapshotStorage(blobContainerClient, new ConsoleLoggerFactory(false));
     }
 
     public ISagaSnapshotStorage Create()
@@ -27,7 +30,7 @@ public class AzureStorageSagaSnapshotStorageFactory : ISagaSnapshotStorageFactor
 
     public IEnumerable<SagaDataSnapshot> GetAllSnapshots()
     {
-        var allBlobs = _storage.ListAllBlobs().Cast<CloudBlockBlob>()
+        var allBlobs = _storage.ListAllBlobs().Cast<BlobItem>()
             .Select(b => new
             {
                 Parts = b.Name.Split('/')

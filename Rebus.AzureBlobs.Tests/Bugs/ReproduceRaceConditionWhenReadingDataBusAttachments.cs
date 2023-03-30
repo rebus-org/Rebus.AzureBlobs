@@ -3,8 +3,7 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.Azure.Storage;
-using Microsoft.Azure.Storage.Blob;
+using Azure.Storage.Blobs;
 using NUnit.Framework;
 using Rebus.Activation;
 using Rebus.AzureBlobs.Tests.Extensions;
@@ -21,17 +20,17 @@ namespace Rebus.AzureBlobs.Tests.Bugs;
 [TestFixture]
 public class ReproduceRaceConditionWhenReadingDataBusAttachments : FixtureBase
 {
-    CloudBlobContainer _container;
-    CloudStorageAccount _storageAccount;
+    BlobContainerClient _container;
     string _containerName;
+    private string _connectionString;
 
     protected override void SetUp()
     {
         base.SetUp();
 
+        _connectionString = AzureConfig.ConnectionString;
         _containerName = Guid.NewGuid().ToString("N");
-        _storageAccount = AzureConfig.StorageAccount;
-        _container = _storageAccount.CreateCloudBlobClient().GetContainerReference(_containerName);
+        _container = new BlobContainerClient(_connectionString, _containerName);
 
         Using(_container.AsDisposable(c => c.DeleteIfExists()));
     }
@@ -63,7 +62,7 @@ public class ReproduceRaceConditionWhenReadingDataBusAttachments : FixtureBase
         Configure.With(activator)
             .Logging(l => l.Console(minLevel: LogLevel.Warn))
             .Transport(t => t.UseInMemoryTransport(new InMemNetwork(), "who-cares"))
-            .DataBus(d => d.StoreInBlobStorage(_storageAccount, _containerName))
+            .DataBus(d => d.StoreInBlobStorage(_connectionString, _containerName))
             .Options(o =>
             {
                 o.SetNumberOfWorkers(10);

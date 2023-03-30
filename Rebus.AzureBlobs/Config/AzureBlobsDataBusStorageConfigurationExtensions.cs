@@ -1,9 +1,8 @@
-﻿using Microsoft.Azure.Storage;
-using Rebus.AzureBlobs.DataBus;
+﻿using Rebus.AzureBlobs.DataBus;
 using Rebus.DataBus;
 using Rebus.Logging;
 using System;
-using Microsoft.Azure.Storage.Blob;
+using Azure.Storage.Blobs;
 using Rebus.Time;
 // ReSharper disable UnusedMember.Global
 
@@ -17,30 +16,15 @@ public static class AzureBlobsDataBusStorageConfigurationExtensions
     /// <summary>
     /// Configures Rebus' data bus to store data in/read data from Azure blobs in the given storage account and container
     /// </summary>
-    public static AzureBlobsDataBusStorageOptions StoreInBlobStorage(this StandardConfigurer<IDataBusStorage> configurer, CloudStorageAccount storageAccount, string containerName)
-    {
-        if (configurer == null) throw new ArgumentNullException(nameof(configurer));
-        if (containerName == null) throw new ArgumentNullException(nameof(containerName));
-        if (storageAccount == null) throw new ArgumentNullException(nameof(storageAccount));
-
-        var createCloudBlobClient = storageAccount.CreateCloudBlobClient();
-
-        return Configure(configurer, createCloudBlobClient.GetContainerReference(containerName));
-    }
-
-    /// <summary>
-    /// Configures Rebus' data bus to store data in/read data from Azure blobs in the given storage account and container
-    /// </summary>
     public static AzureBlobsDataBusStorageOptions StoreInBlobStorage(this StandardConfigurer<IDataBusStorage> configurer, string storageAccountConnectionString, string containerName)
     {
         if (configurer == null) throw new ArgumentNullException(nameof(configurer));
         if (containerName == null) throw new ArgumentNullException(nameof(containerName));
         if (storageAccountConnectionString == null) throw new ArgumentNullException(nameof(storageAccountConnectionString));
 
-        var cloudStorageAccount = CloudStorageAccount.Parse(storageAccountConnectionString);
-        var createCloudBlobClient = cloudStorageAccount.CreateCloudBlobClient();
+        var blobContainerClient = new BlobContainerClient(storageAccountConnectionString, containerName);
 
-        return Configure(configurer, createCloudBlobClient.GetContainerReference(containerName));
+        return Configure(configurer, blobContainerClient);
     }
 
     /// <summary>
@@ -51,12 +35,12 @@ public static class AzureBlobsDataBusStorageConfigurationExtensions
         if (configurer == null) throw new ArgumentNullException(nameof(configurer));
         if (containerUri == null) throw new ArgumentNullException(nameof(containerUri));
 
-        var createCloudBlobClient = new CloudBlobContainer(containerUri);
+        var blobContainerClient = new BlobContainerClient(containerUri);
 
-        return Configure(configurer, createCloudBlobClient);
+        return Configure(configurer, blobContainerClient);
     }
 
-    static AzureBlobsDataBusStorageOptions Configure(StandardConfigurer<IDataBusStorage> configurer, CloudBlobContainer cloudBlobContainer)
+    static AzureBlobsDataBusStorageOptions Configure(StandardConfigurer<IDataBusStorage> configurer, BlobContainerClient blobContainerClient)
     {
         var options = new AzureBlobsDataBusStorageOptions();
 
@@ -65,7 +49,7 @@ public static class AzureBlobsDataBusStorageConfigurationExtensions
             var rebusLoggerFactory = c.Get<IRebusLoggerFactory>();
             var rebusTime = c.Get<IRebusTime>();
 
-            var azureBlobsDataBusStorage = new AzureBlobsDataBusStorage(rebusLoggerFactory, rebusTime, options, cloudBlobContainer);
+            var azureBlobsDataBusStorage = new AzureBlobsDataBusStorage(rebusLoggerFactory, rebusTime, options, blobContainerClient);
 
             return azureBlobsDataBusStorage;
         });

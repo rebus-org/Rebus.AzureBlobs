@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="15.0">
 	<PropertyGroup>
 		<OutputType>Library</OutputType>
-		<AppDesignerFolder>Properties</AppDesignerFolder>
 		<TargetFramework>net7.0</TargetFramework>
 		<LangVersion>11</LangVersion>
 	</PropertyGroup>
@@ -14,10 +13,5 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="rebus.tests.contracts" Version="8.0.0-alpha01" />
-	</ItemGroup>
-	<ItemGroup>
-		<None Update="azure_storage_connection_string.txt">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
 	</ItemGroup>
 </Project>

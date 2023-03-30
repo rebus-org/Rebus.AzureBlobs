@@ -1,12 +1,9 @@
-﻿using Microsoft.Azure.Storage;
-using System;
+﻿using System;
 
 namespace Rebus.AzureBlobs.Tests;
 
 public static class AzureConfig
 {
-    public static CloudStorageAccount StorageAccount => CloudStorageAccount.Parse(ConnectionString);
-
     public static string ConnectionString => ConnectionStringFromEnvironmentVariable("rebus2_storage_connection_string")
                                              ?? "UseDevelopmentStorage=true";
 
