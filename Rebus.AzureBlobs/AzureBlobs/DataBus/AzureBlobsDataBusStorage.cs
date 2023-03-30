@@ -6,10 +6,8 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Net;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
-using Azure.Storage.Blobs.Models;
 using Rebus.Config;
 using Rebus.Time;
 // ReSharper disable ArgumentsStyleOther
@@ -75,9 +73,7 @@ public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManageme
                 .MergedWith(metadata ?? new Dictionary<string, string>());
 
             var blob = _blobContainerClient.GetBlobClient(blobName);
-
-            await blob.UploadAsync(source);
-            await blob.SetMetadataAsync(metadataToWrite);
+            await blob.UploadAsync(source, metadata: metadataToWrite);
         }
         catch (Exception exception)
         {
