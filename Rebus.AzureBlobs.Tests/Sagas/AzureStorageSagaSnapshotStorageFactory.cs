@@ -12,13 +12,16 @@ namespace Rebus.AzureBlobs.Tests.Sagas;
 public class AzureStorageSagaSnapshotStorageFactory : ISagaSnapshotStorageFactory
 {
     readonly AzureStorageSagaSnapshotStorage _storage;
+    readonly BlobContainerClient _blobContainerClient;
 
     public AzureStorageSagaSnapshotStorageFactory()
     {
-        var containerName = $"RebusSagaSnapshotStorageTestContainer{DateTime.Now:yyyyMMddHHmmss}";
-        var blobContainerClient = new BlobContainerClient(AzureConfig.ConnectionString, containerName);
-        _storage = new AzureStorageSagaSnapshotStorage(blobContainerClient, new ConsoleLoggerFactory(false));
+        var containerName = $"container{Guid.NewGuid():N}";
+        _blobContainerClient = new BlobContainerClient(AzureConfig.ConnectionString, containerName);
+        _storage = new AzureStorageSagaSnapshotStorage(_blobContainerClient, new ConsoleLoggerFactory(false));
     }
+
+    public void Dispose() => _blobContainerClient.DeleteIfExists();
 
     public ISagaSnapshotStorage Create()
     {

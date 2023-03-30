@@ -17,6 +17,7 @@ namespace Rebus.AzureBlobs.Sagas;
 /// </summary>
 public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
 {
+    const string ContentType = "application/json; charset=utf-8";
     static readonly JsonSerializerSettings DataSettings = new() { TypeNameHandling = TypeNameHandling.All };
     static readonly JsonSerializerSettings MetadataSettings = new() { TypeNameHandling = TypeNameHandling.None };
     static readonly Encoding TextEncoding = Encoding.UTF8;
@@ -31,6 +32,7 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
     {
         if (loggerFactory == null) throw new ArgumentNullException(nameof(loggerFactory));
         _blobContainerClient = blobContainerClient ?? throw new ArgumentNullException(nameof(blobContainerClient));
+        _blobContainerClient.CreateIfNotExists();
         _log = loggerFactory.GetLogger<AzureStorageSagaSnapshotStorage>();
     }
 
@@ -44,25 +46,11 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
         var dataBlob = _blobContainerClient.GetBlobClient(dataRef);
         var metaDataBlob = _blobContainerClient.GetBlobClient(metaDataRef);
 
-        //dataBlob.Properties.ContentType = "application/json";
-        //metaDataBlob.Properties.ContentType = "application/json";
+        var options = new BlobUploadOptions { HttpHeaders = new BlobHttpHeaders { ContentType = ContentType } };
 
-        //await dataBlob.SetHttpHeadersAsync(new BlobHttpHeaders { ContentType = "application/json" });
-        //await metaDataBlob.SetHttpHeadersAsync(new BlobHttpHeaders { ContentType = "application/json" });
-
-        //await dataBlob.UploadTextAsync(JsonConvert.SerializeObject(sagaData, DataSettings), TextEncoding, DefaultAccessCondition, DefaultRequestOptions, new OperationContext());
-        //await metaDataBlob.UploadTextAsync(JsonConvert.SerializeObject(sagaAuditMetadata, MetadataSettings), TextEncoding, DefaultAccessCondition, DefaultRequestOptions, new OperationContext());
-
-        await dataBlob.UploadAsync(JsonConvert.SerializeObject(sagaData, DataSettings), new BlobHttpHeaders { ContentType = "application/json" });
-        await metaDataBlob.UploadAsync(JsonConvert.SerializeObject(sagaAuditMetadata, MetadataSettings), new BlobHttpHeaders { ContentType = "application/json" });
-
-        //await dataBlob.SetPropertiesAsync();
-        //await metaDataBlob.SetPropertiesAsync();
+        await dataBlob.UploadAsync(new BinaryData(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(sagaData, DataSettings))), options);
+        await metaDataBlob.UploadAsync(new BinaryData(Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(sagaAuditMetadata, MetadataSettings))), options);
     }
-
-    //static BlobRequestOptions DefaultRequestOptions => new BlobRequestOptions { RetryPolicy = new ExponentialRetry() };
-
-    //static AccessCondition DefaultAccessCondition => AccessCondition.GenerateEmptyCondition();
 
     /// <summary>
     /// Gets all blobs in the snapshot container
@@ -76,22 +64,6 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
                 yield return item;
             }
         }
-
-        //BlobContinuationToken continuationToken = null;
-
-        //while (true)
-        //{
-        //    var result = AsyncHelpers.GetResult(() => _blobContainerClient.ListBlobsSegmentedAsync("", true, BlobListingDetails.None, 100, continuationToken, DefaultRequestOptions, new OperationContext()));
-
-        //    foreach (var item in result.Results)
-        //    {
-        //        yield return item;
-        //    }
-
-        //    continuationToken = result.ContinuationToken;
-
-        //    if (continuationToken == null) break;
-        //}
     }
 
     /// <summary>
