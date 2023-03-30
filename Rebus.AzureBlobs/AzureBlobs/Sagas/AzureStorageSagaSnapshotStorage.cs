@@ -4,9 +4,11 @@ using Rebus.Logging;
 using Rebus.Sagas;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 
 namespace Rebus.AzureBlobs.Sagas;
 
@@ -39,40 +41,57 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
     {
         var dataRef = $"{sagaData.Id:N}/{sagaData.Revision:0000000000}/data.json";
         var metaDataRef = $"{sagaData.Id:N}/{sagaData.Revision:0000000000}/metadata.json";
-        var dataBlob = _blobContainerClient.GetBlockBlobReference(dataRef);
-        var metaDataBlob = _blobContainerClient.GetBlockBlobReference(metaDataRef);
-        dataBlob.Properties.ContentType = "application/json";
-        metaDataBlob.Properties.ContentType = "application/json";
-        await dataBlob.UploadTextAsync(JsonConvert.SerializeObject(sagaData, DataSettings), TextEncoding, DefaultAccessCondition, DefaultRequestOptions, new OperationContext());
-        await metaDataBlob.UploadTextAsync(JsonConvert.SerializeObject(sagaAuditMetadata, MetadataSettings), TextEncoding, DefaultAccessCondition, DefaultRequestOptions, new OperationContext());
-        await dataBlob.SetPropertiesAsync();
-        await metaDataBlob.SetPropertiesAsync();
+        var dataBlob = _blobContainerClient.GetBlobClient(dataRef);
+        var metaDataBlob = _blobContainerClient.GetBlobClient(metaDataRef);
+
+        //dataBlob.Properties.ContentType = "application/json";
+        //metaDataBlob.Properties.ContentType = "application/json";
+
+        //await dataBlob.SetHttpHeadersAsync(new BlobHttpHeaders { ContentType = "application/json" });
+        //await metaDataBlob.SetHttpHeadersAsync(new BlobHttpHeaders { ContentType = "application/json" });
+
+        //await dataBlob.UploadTextAsync(JsonConvert.SerializeObject(sagaData, DataSettings), TextEncoding, DefaultAccessCondition, DefaultRequestOptions, new OperationContext());
+        //await metaDataBlob.UploadTextAsync(JsonConvert.SerializeObject(sagaAuditMetadata, MetadataSettings), TextEncoding, DefaultAccessCondition, DefaultRequestOptions, new OperationContext());
+
+        await dataBlob.UploadAsync(JsonConvert.SerializeObject(sagaData, DataSettings), new BlobHttpHeaders { ContentType = "application/json" });
+        await metaDataBlob.UploadAsync(JsonConvert.SerializeObject(sagaAuditMetadata, MetadataSettings), new BlobHttpHeaders { ContentType = "application/json" });
+
+        //await dataBlob.SetPropertiesAsync();
+        //await metaDataBlob.SetPropertiesAsync();
     }
 
-    static BlobRequestOptions DefaultRequestOptions => new BlobRequestOptions { RetryPolicy = new ExponentialRetry() };
+    //static BlobRequestOptions DefaultRequestOptions => new BlobRequestOptions { RetryPolicy = new ExponentialRetry() };
 
-    static AccessCondition DefaultAccessCondition => AccessCondition.GenerateEmptyCondition();
+    //static AccessCondition DefaultAccessCondition => AccessCondition.GenerateEmptyCondition();
 
     /// <summary>
     /// Gets all blobs in the snapshot container
     /// </summary>
-    public IEnumerable<IListBlobItem> ListAllBlobs()
+    public IEnumerable<BlobItem> ListAllBlobs()
     {
-        BlobContinuationToken continuationToken = null;
-
-        while (true)
+        foreach (var page in _blobContainerClient.GetBlobs().AsPages())
         {
-            var result = AsyncHelpers.GetResult(() => _blobContainerClient.ListBlobsSegmentedAsync("", true, BlobListingDetails.None, 100, continuationToken, DefaultRequestOptions, new OperationContext()));
-
-            foreach (var item in result.Results)
+            foreach (var item in page.Values)
             {
                 yield return item;
             }
-
-            continuationToken = result.ContinuationToken;
-
-            if (continuationToken == null) break;
         }
+
+        //BlobContinuationToken continuationToken = null;
+
+        //while (true)
+        //{
+        //    var result = AsyncHelpers.GetResult(() => _blobContainerClient.ListBlobsSegmentedAsync("", true, BlobListingDetails.None, 100, continuationToken, DefaultRequestOptions, new OperationContext()));
+
+        //    foreach (var item in result.Results)
+        //    {
+        //        yield return item;
+        //    }
+
+        //    continuationToken = result.ContinuationToken;
+
+        //    if (continuationToken == null) break;
+        //}
     }
 
     /// <summary>
@@ -80,17 +99,25 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
     /// </summary>
     public void EnsureContainerExists()
     {
-        if (!AsyncHelpers.GetResult(() => _blobContainerClient.ExistsAsync()))
-        {
-            _log.Info("Container {containerName} did not exist - it will be created now", _blobContainerClient.Name);
-            AsyncHelpers.RunSync(() => _blobContainerClient.CreateIfNotExistsAsync());
-        }
+        if (_blobContainerClient.Exists()) return;
+
+        _log.Info("Container {containerName} did not exist - it will be created now", _blobContainerClient.Name);
+
+        _blobContainerClient.CreateIfNotExists();
     }
 
-    static string GetBlobData(CloudBlockBlob cloudBlockBlob)
+    static string GetBlobData(BlobClient blob)
     {
-        return AsyncHelpers.GetResult(() => cloudBlockBlob.DownloadTextAsync(TextEncoding, new AccessCondition(),
-            new BlobRequestOptions { RetryPolicy = new ExponentialRetry() }, new OperationContext()));
+        var response = blob.Download();
+        var info = response.Value;
+
+        using var reader = new StreamReader(info.Content, TextEncoding);
+
+        return reader.ReadToEnd();
+        //return info
+
+        //return AsyncHelpers.GetResult(() => cloudBlockBlob.DownloadTextAsync(TextEncoding, new AccessCondition(),
+        //    new BlobRequestOptions { RetryPolicy = new ExponentialRetry() }, new OperationContext()));
     }
 
     /// <summary>
@@ -99,7 +126,7 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
     public ISagaData GetSagaData(Guid sagaDataId, int revision)
     {
         var dataRef = $"{sagaDataId:N}/{revision:0000000000}/data.json";
-        var dataBlob = _blobContainerClient.GetBlockBlobReference(dataRef);
+        var dataBlob = _blobContainerClient.GetBlobClient(dataRef);
         var json = GetBlobData(dataBlob);
         return (ISagaData)JsonConvert.DeserializeObject(json, DataSettings);
     }
@@ -110,7 +137,7 @@ public class AzureStorageSagaSnapshotStorage : ISagaSnapshotStorage
     public Dictionary<string, string> GetSagaMetaData(Guid sagaDataId, int revision)
     {
         var metaDataRef = $"{sagaDataId:N}/{revision:0000000000}/metadata.json";
-        var metaDataBlob = _blobContainerClient.GetBlockBlobReference(metaDataRef);
+        var metaDataBlob = _blobContainerClient.GetBlobClient(metaDataRef);
         var json = GetBlobData(metaDataBlob);
         return JsonConvert.DeserializeObject<Dictionary<string, string>>(json, MetadataSettings);
     }

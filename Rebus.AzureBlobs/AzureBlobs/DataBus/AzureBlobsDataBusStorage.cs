@@ -9,6 +9,7 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using Azure.Storage.Blobs;
+using Azure.Storage.Blobs.Models;
 using Rebus.Config;
 using Rebus.Time;
 // ReSharper disable ArgumentsStyleOther
@@ -65,8 +66,6 @@ public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManageme
 
         try
         {
-            //var blob = _blobContainerClient.GetBlockBlobReference(blobName);
-
             var standardMetadata = new Dictionary<string, string>
             {
                 {MetadataKeys.SaveTime, _rebusTime.Now.ToString("O")}
@@ -75,21 +74,10 @@ public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManageme
             var metadataToWrite = standardMetadata
                 .MergedWith(metadata ?? new Dictionary<string, string>());
 
-            foreach (var kvp in metadataToWrite)
-            {
-                blob.Metadata[kvp.Key] = kvp.Value;
-            }
+            var blob = _blobContainerClient.GetBlobClient(blobName);
 
-            await _blobContainerClient.UploadBlobAsync(blobName, source);
-
-            //_blobContainerClient.
-
-            //await blob.UploadFromStreamAsync(
-            //    source: source,
-            //    accessCondition: AccessCondition.GenerateEmptyCondition(),
-            //    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
-            //    operationContext: new OperationContext()
-            //);
+            await blob.UploadAsync(source);
+            await blob.SetMetadataAsync(metadataToWrite);
         }
         catch (Exception exception)
         {
@@ -105,12 +93,14 @@ public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManageme
         var blobName = GetBlobName(id);
         try
         {
-            var blob = await _blobContainerClient.GetBlobReferenceFromServerAsync(
-                blobName: blobName,
-                accessCondition: AccessCondition.GenerateEmptyCondition(),
-                options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
-                operationContext: new OperationContext()
-            );
+            var blob = _blobContainerClient.GetBlobClient(blobName);
+
+            //var blob = await _blobContainerClient.GetBlobReferenceFromServerAsync(
+            //    blobName: blobName,
+            //    accessCondition: AccessCondition.GenerateEmptyCondition(),
+            //    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
+            //    operationContext: new OperationContext()
+            //);
 
             if (_options.UpdateLastReadTime)
             {
@@ -119,43 +109,55 @@ public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManageme
 
             // for some reason, the access condition passed to OpenRead does not apply to the second HTTP request issued
             // from the operation - therefore, we need to hook into this if-match part and do this: 
-            var operationContext = new OperationContext();
+            //var operationContext = new OperationContext();
 
-            operationContext.SendingRequest += (_, e) =>
-            {
-                var request = e.Request;
-                var headers = request.Headers;
+            //operationContext.SendingRequest += (_, e) =>
+            //{
+            //    var request = e.Request;
+            //    var headers = request.Headers;
 
-                if (headers.Contains("if-match"))
-                {
-                    headers.Remove("if-match");
-                }
+            //    if (headers.Contains("if-match"))
+            //    {
+            //        headers.Remove("if-match");
+            //    }
 
-                headers.Add("if-match", "*");
-            };
+            //    headers.Add("if-match", "*");
+            //};
 
-            return await blob.OpenReadAsync(
-                accessCondition: AccessCondition.GenerateEmptyCondition(),
-                options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
-                operationContext: operationContext
-            );
+            return await blob.OpenReadAsync();
+
+            //return await blob.OpenReadAsync(
+            //    accessCondition: AccessCondition.GenerateEmptyCondition(),
+            //    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
+            //    operationContext: operationContext
+            //);
         }
-        catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
+        //catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
+        //{
+        //    throw new ArgumentException(
+        //        $"Could not find blob named '{blobName}' in the '{_containerName}' container", exception);
+        //}
+        catch (Exception exception)
         {
             throw new ArgumentException(
                 $"Could not find blob named '{blobName}' in the '{_containerName}' container", exception);
         }
     }
 
-    async Task UpdateLastReadTime(ICloudBlob blob)
+    async Task UpdateLastReadTime(BlobClient blob)
     {
-        blob.Metadata[MetadataKeys.ReadTime] = _rebusTime.Now.ToString("O");
+        await blob.SetMetadataAsync(new Dictionary<string, string>
+        {
+            [MetadataKeys.ReadTime] = _rebusTime.Now.ToString("O")
+        });
 
-        await blob.SetMetadataAsync(
-            accessCondition: AccessCondition.GenerateEmptyCondition(),
-            options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
-            operationContext: new OperationContext()
-        );
+        //blob.Metadata[MetadataKeys.ReadTime] = _rebusTime.Now.ToString("O");
+
+        //await blob.SetMetadataAsync(
+        //    accessCondition: AccessCondition.GenerateEmptyCondition(),
+        //    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
+        //    operationContext: new OperationContext()
+        //);
     }
 
     /// <summary>
@@ -166,21 +168,31 @@ public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManageme
         var blobName = GetBlobName(id);
         try
         {
-            var blob = await _blobContainerClient.GetBlobReferenceFromServerAsync(
-                blobName: blobName,
-                accessCondition: AccessCondition.GenerateEmptyCondition(),
-                options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
-                operationContext: new OperationContext()
-            );
+            var blob = _blobContainerClient.GetBlobClient(blobName);
+            //var blob = await _blobContainerClient.GetBlobReferenceFromServerAsync(
+            //    blobName: blobName,
+            //    accessCondition: AccessCondition.GenerateEmptyCondition(),
+            //    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
+            //    operationContext: new OperationContext()
+            //);
 
-            var metadata = new Dictionary<string, string>(blob.Metadata)
-            {
-                [MetadataKeys.Length] = blob.Properties.Length.ToString()
-            };
+            var response = await blob.GetPropertiesAsync();
+            var properties = response.Value;
+            var metadata = properties.Metadata.ToDictionary(kvp => kvp.Key, kvp => kvp.Value);
+
+            metadata[MetadataKeys.Length] = properties.ContentLength.ToString();
+            //var metadata = new Dictionary<string, string>(blob.Metadata)
+            //{
+            //    [MetadataKeys.Length] = blob.Properties.Length.ToString()
+            //};
 
             return metadata;
         }
-        catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
+        //catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
+        //{
+        //    throw new ArgumentException($"Could not find blob named '{blobName}' in the '{_containerName}' container", exception);
+        //}
+        catch (Exception exception)
         {
             throw new ArgumentException($"Could not find blob named '{blobName}' in the '{_containerName}' container", exception);
         }
@@ -193,43 +205,54 @@ public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManageme
     {
         var blobName = GetBlobName(id);
 
-        try
-        {
-            var blob = await _blobContainerClient.GetBlobReferenceFromServerAsync(
-                blobName: blobName,
-                accessCondition: AccessCondition.GenerateEmptyCondition(),
-                options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
-                operationContext: new OperationContext()
-            );
+        var blob = _blobContainerClient.GetBlobClient(blobName);
 
-            await blob.DeleteAsync();
-        }
-        catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
-        {
-            // it's ok
-        }
+        await blob.DeleteIfExistsAsync();
+
+        //try
+        //{
+        //var blob = await _blobContainerClient.GetBlobReferenceFromServerAsync(
+        //    blobName: blobName,
+        //    accessCondition: AccessCondition.GenerateEmptyCondition(),
+        //    options: new BlobRequestOptions { RetryPolicy = new ExponentialRetry() },
+        //    operationContext: new OperationContext()
+        //);
+
+        //await blob.DeleteAsync();
+        //}
+        //catch (StorageException exception) when (exception.IsStatus(HttpStatusCode.NotFound))
+        //{
+        //    // it's ok
+        //}
     }
 
     /// <inheritdoc />
     public IEnumerable<string> Query(TimeRange readTime = null, TimeRange saveTime = null)
     {
-        BlobContinuationToken blobContinuationToken = null;
-
-        do
+        static bool IsWithin(TimeRange timeRange, DateTimeOffset time)
         {
-            var results = _blobContainerClient.ListBlobsSegmented(blobContinuationToken);
+            return time >= (timeRange?.From ?? DateTimeOffset.MinValue)
+                   && time < (timeRange?.To ?? DateTimeOffset.MaxValue);
+        }
 
-            foreach (var result in results.Results.OfType<CloudBlockBlob>())
+        var blobs = _blobContainerClient.GetBlobs();
+
+        foreach (var page in blobs.AsPages())
+        {
+            foreach (var item in page.Values)
             {
-                var fileName = Path.GetFileNameWithoutExtension(result.Name);
+                var fileName = Path.GetFileNameWithoutExtension(item.Name);
                 if (fileName == null) continue;
 
                 var id = fileName.Split('-').Last();
 
                 if (string.IsNullOrWhiteSpace(id)) continue;
 
-                // accelerate querying without criteria
-                if (readTime == null && saveTime == null) yield return id;
+                if (readTime == null && saveTime == null)
+                {
+                    yield return id;
+                    continue;
+                }
 
                 var metadata = AsyncHelpers.GetResult(() => ReadMetadata(id));
 
@@ -260,14 +283,57 @@ public class AzureBlobsDataBusStorage : IDataBusStorage, IDataBusStorageManageme
                 yield return id;
             }
 
-            blobContinuationToken = results.ContinuationToken;
+        }
 
-        } while (blobContinuationToken != null);
-    }
+        //BlobContinuationToken blobContinuationToken = null;
 
-    static bool IsWithin(TimeRange timeRange, DateTimeOffset time)
-    {
-        return time >= (timeRange?.From ?? DateTimeOffset.MinValue)
-               && time < (timeRange?.To ?? DateTimeOffset.MaxValue);
+        //do
+        //{
+        //    var results = _blobContainerClient.ListBlobsSegmented(blobContinuationToken);
+
+        //    foreach (var result in results.Results.OfType<CloudBlockBlob>())
+        //    {
+        //        var fileName = Path.GetFileNameWithoutExtension(result.Name);
+        //        if (fileName == null) continue;
+
+        //        var id = fileName.Split('-').Last();
+
+        //        if (string.IsNullOrWhiteSpace(id)) continue;
+
+        //        // accelerate querying without criteria
+        //        if (readTime == null && saveTime == null) yield return id;
+
+        //        var metadata = AsyncHelpers.GetResult(() => ReadMetadata(id));
+
+        //        if (readTime != null)
+        //        {
+        //            if (metadata.TryGetValue(MetadataKeys.ReadTime, out var readTimeString))
+        //            {
+        //                if (DateTimeOffset.TryParseExact(readTimeString, "o", CultureInfo.InvariantCulture,
+        //                        DateTimeStyles.RoundtripKind, out var readTimeValue))
+        //                {
+        //                    if (!IsWithin(readTime, readTimeValue)) continue;
+        //                }
+        //            }
+        //        }
+
+        //        if (saveTime != null)
+        //        {
+        //            if (metadata.TryGetValue(MetadataKeys.SaveTime, out var saveTimeString))
+        //            {
+        //                if (DateTimeOffset.TryParseExact(saveTimeString, "o", CultureInfo.InvariantCulture,
+        //                        DateTimeStyles.RoundtripKind, out var saveTimeValue))
+        //                {
+        //                    if (!IsWithin(saveTime, saveTimeValue)) continue;
+        //                }
+        //            }
+        //        }
+
+        //        yield return id;
+        //    }
+
+        //    blobContinuationToken = results.ContinuationToken;
+
+        //} while (blobContinuationToken != null);
     }
 }
