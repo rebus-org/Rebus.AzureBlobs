@@ -12,6 +12,9 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="rebus.tests.contracts" Version="8.0.0-alpha02" />
+		<PackageReference Include="rebus.tests.contracts" Version="8.0.0-alpha04" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="Retries\" />
 	</ItemGroup>
 </Project>

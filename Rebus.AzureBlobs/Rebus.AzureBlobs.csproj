@@ -23,6 +23,9 @@
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="azure.storage.blobs" Version="12.15.1" />
-		<PackageReference Include="rebus" Version="8.0.0-alpha02" />
+		<PackageReference Include="rebus" Version="8.0.0-alpha04" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Folder Include="AzureBlobs\Retries\" />
 	</ItemGroup>
 </Project>
