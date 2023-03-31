@@ -24,8 +24,9 @@
 ## 0.6.0
 * Update microsoft.azure.keyvault.core to 3.0.5 and microsoft.azure.storage.blob to 11.2.3
 
-## 1.0.0-alpha01
+## 1.0.0-alpha02
 * Update to Rebus 8
+* Add blob-based error tracker - enable by going `.Errors(e => e.UseBlobStorage(...))` in the main Rebus configurer
 
 
 [oseku]: https://github.com/oseku

@@ -15,11 +15,11 @@ public class AzureBlobsErrorTrackerFactory : IErrorTrackerFactory
 {
     readonly ConcurrentStack<IDisposable> _disposables = new();
 
-    public IErrorTracker Create(RetryStrategySettings settings)
+    public IErrorTracker Create(RetryStrategySettings settings, IExceptionLogger exceptionLogger)
     {
         var blobContainerClient = new BlobContainerClient(AzureConfig.ConnectionString, Guid.NewGuid().ToString("n"));
         _disposables.Push(blobContainerClient.AsDisposable(c => c.DeleteIfExists()));
-        return new AzureBlobsErrorTracker(blobContainerClient, settings, new InMemTransport(new(), "queue-name"));
+        return new AzureBlobsErrorTracker(blobContainerClient, settings, new InMemTransport(new(), "queue-name"), exceptionLogger);
     }
 
     public void Dispose() => _disposables.Dispose();
