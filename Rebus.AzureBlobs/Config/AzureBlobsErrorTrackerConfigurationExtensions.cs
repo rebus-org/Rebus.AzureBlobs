@@ -9,7 +9,7 @@ namespace Rebus.Config;
 
 public static class AzureBlobsErrorTrackerConfigurationExtensions
 {
-    public static void UseBlobStorage(this StandardConfigurer<IErrorTracker> configurer, string connectionString, string containerName)
+    public static void UseBlobStorageErrorTracker(this StandardConfigurer<IErrorTracker> configurer, string connectionString, string containerName)
     {
         if (configurer == null) throw new ArgumentNullException(nameof(configurer));
         if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));

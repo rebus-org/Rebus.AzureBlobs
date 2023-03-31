@@ -23,7 +23,7 @@ public class ShowAzureBlobErrorTrackerApi : FixtureBase
 
         Configure.With(activator)
             .Transport(t => t.UseInMemoryTransport(network, "blob-error-tracker"))
-            .Errors(o => o.UseBlobStorage(AzureConfig.ConnectionString, "errors"))
+            .Errors(o => o.UseBlobStorageErrorTracker(AzureConfig.ConnectionString, "errors"))
             .Start();
 
         await activator.Bus.SendLocal("HEJ");
