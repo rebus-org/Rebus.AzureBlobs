@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Azure.Storage.Blobs;
 using NUnit.Framework;
 using Rebus.Activation;
 using Rebus.Config;
@@ -15,11 +16,19 @@ public class ReproduceDataBusNullReferenceException : FixtureBase
 {
     const string ValidEncryptionKey = "yFvUZZJaCLPjoQztB+UNzMbh21v7fa0BXo2b6db6Zz0=";
 
-    [Test]
-    public async Task CanSendBigMessageWithAutomaticDataBus()
+    [TestCase(true)]
+    [TestCase(false)]
+    public async Task CanSendBigMessageWithAutomaticDataBus(bool createContainerManually)
     {
         var containerName = Guid.NewGuid().ToString("N");
 
+        if (createContainerManually)
+        {
+            // ensure container exists
+            await new BlobContainerClient(AzureConfig.ConnectionString, containerName).CreateIfNotExistsAsync();
+        }
+
+        // and remove it after the test
         using var _ = AzureConfig.ContainerDeleter(containerName);
 
         using var bus = Configure.With(new BuiltinHandlerActivator())
@@ -27,7 +36,12 @@ public class ReproduceDataBusNullReferenceException : FixtureBase
             .Options(o => o.EnableEncryption(ValidEncryptionKey))
             .DataBus(d =>
             {
-                d.StoreInBlobStorage(AzureConfig.ConnectionString, containerName);
+                var options = d.StoreInBlobStorage(AzureConfig.ConnectionString, containerName);
+
+                if (createContainerManually)
+                {
+                    options.DoNotCreateContainer();
+                }
 
                 // just send all messages via data bus
                 d.SendBigMessagesAsAttachments(bodySizeThresholdBytes: 0);
