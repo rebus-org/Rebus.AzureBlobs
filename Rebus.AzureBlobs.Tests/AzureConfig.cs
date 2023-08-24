@@ -1,9 +1,14 @@
-﻿using System;
+﻿using Azure.Storage.Blobs;
+using System;
+using Rebus.AzureBlobs.Tests.Extensions;
 
 namespace Rebus.AzureBlobs.Tests;
 
 public static class AzureConfig
 {
+    public static IDisposable ContainerDeleter(string containerName) =>
+        new BlobContainerClient(ConnectionString, containerName).AsDisposable(c => c.DeleteIfExists());
+
     public static string ConnectionString => ConnectionStringFromEnvironmentVariable("rebus2_storage_connection_string")
                                              ?? "UseDevelopmentStorage=true";
 
