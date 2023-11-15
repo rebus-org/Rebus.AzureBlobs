@@ -1,22 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk" ToolsVersion="15.0">
 	<PropertyGroup>
 		<OutputType>Library</OutputType>
-		<TargetFramework>net7.0</TargetFramework>
+		<TargetFramework>net8.0</TargetFramework>
 		<LangVersion>11</LangVersion>
 	</PropertyGroup>
 	<ItemGroup>
 		<ProjectReference Include="..\Rebus.AzureBlobs\Rebus.AzureBlobs.csproj" />
-		<PackageReference Include="microsoft.net.test.sdk" Version="17.6.3" />
-		<PackageReference Include="nunit" Version="3.13.3" />
+		<PackageReference Include="microsoft.net.test.sdk" Version="17.8.0" />
+		<PackageReference Include="nunit" Version="3.14.0" />
 		<PackageReference Include="nunit3testadapter" Version="4.5.0">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="rebus" Version="8.0.0-alpha10" />
-		<PackageReference Include="rebus.tests.contracts" Version="8.0.0-alpha09" />
-	</ItemGroup>
-	<ItemGroup>
-	  <Folder Include="Examples\" />
-	  <Folder Include="Retries\" />
+		<PackageReference Include="rebus.tests.contracts" Version="8.0.1" />
 	</ItemGroup>
 </Project>
