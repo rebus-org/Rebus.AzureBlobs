@@ -4,6 +4,7 @@ using Rebus.Logging;
 using System;
 using Azure.Storage.Blobs;
 using Rebus.Time;
+using Azure.Core;
 // ReSharper disable UnusedMember.Global
 
 namespace Rebus.Config;
@@ -36,6 +37,20 @@ public static class AzureBlobsDataBusStorageConfigurationExtensions
         if (containerUri == null) throw new ArgumentNullException(nameof(containerUri));
 
         var blobContainerClient = new BlobContainerClient(containerUri);
+
+        return Configure(configurer, blobContainerClient);
+    }
+
+    /// <summary>
+    /// Configures Rebus' data bus to store data in/read data from Azure blobs in the blob container with the given <paramref name="containerUri"/> and <paramref name="credentials"/>
+    /// </summary>
+    public static AzureBlobsDataBusStorageOptions StoreInBlobStorage(this StandardConfigurer<IDataBusStorage> configurer, Uri containerUri, TokenCredential credentials)
+    {
+        if (configurer == null) throw new ArgumentNullException(nameof(configurer));
+        if (containerUri == null) throw new ArgumentNullException(nameof(containerUri));
+        if (credentials == null) throw new ArgumentNullException(nameof(credentials));
+
+        var blobContainerClient = new BlobContainerClient(containerUri, credentials);
 
         return Configure(configurer, blobContainerClient);
     }
