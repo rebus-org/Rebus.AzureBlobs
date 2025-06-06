@@ -29,5 +29,8 @@
 * Add blob-based error tracker - enable by going `.Errors(e => e.UseBlobStorage(...))` in the main Rebus configurer
 * Update azure.storage.blobs to 12.19.1
 
+## 1.1.0
+* Add configuration overloads to enable use of `TokenCredential` - thanks [fabio-marini]
 
+[fabio-marini]: https://github.com/fabio-marini
 [oseku]: https://github.com/oseku
