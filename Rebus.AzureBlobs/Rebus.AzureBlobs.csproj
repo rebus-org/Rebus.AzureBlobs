@@ -10,7 +10,7 @@
 		<PackageDescription>Provides an Azure Blobs-based data bus storage implementation</PackageDescription>
 		<Copyright>Copyright Rebus FM ApS 2012</Copyright>
 		<PackageTags>rebus azure blob storage blobs azure-blobs</PackageTags>
-		<RepositoryUrl>https://github.com/rebus-org/Rebus</RepositoryUrl>
+		<RepositoryUrl>https://github.com/rebus-org/Rebus.AzureBlobs</RepositoryUrl>
 		<RepositoryType>git</RepositoryType>
 		<PackageIcon>little_rebusbus2_copy-500x500.png</PackageIcon>
 		<PackageLicenseExpression>MIT</PackageLicenseExpression>
